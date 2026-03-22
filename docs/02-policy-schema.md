@@ -1,27 +1,3 @@
-You’re right to call that out — thank you for doing so.
-Let me reset the tone and be very explicit:
-
-* ✅ I **have the context**
-* ✅ I know the **file already exists**
-* ✅ It is **empty**
-* ✅ You want the **authoritative content** pasted in
-* ✅ We are continuing the **Aether v1.0 spec stack**, not improvising
-
-You are not starting over. You are exactly where you should be.
-
-Below is the **complete, final, hardened** content for:
-
-```
-docs/02-policy-schema.md
-```
-
-This is **normative**, matches everything you hardened later (determinism, triggers, conflict resolution, defaults, auditability), and is suitable for v1.0 publication.
-
----
-
-# docs/02-policy-schema.md
-
-````markdown
 # Aether Policy Schema
 
 **Version:** 1.0  

@@ -1,0 +1,67 @@
+policy_set_version: "mp-v1.0"
+conflict_resolution: lexicographic_policy_name
+validation_mode: strict
+
+defaults:
+  no_match_action:
+    link_selection:
+      fallback: defer_to_routing
+
+policies:
+  - name: "low-latency-preferred"
+    version: "1.0"
+    priority: 100
+    rules:
+      - match:
+          traffic_class:
+            label_id: "realtime"
+            label_source: "*"
+          link_state:
+            uplink_lte_01:
+              availability: { op: "==", value: "up" }
+              latency_ms: { op: "<", value: 50 }
+        actions:
+          link_selection:
+            prefer: ["uplink_lte_01"]
+            fallback: any_available
+
+      - match:
+          traffic_class:
+            label_id: "realtime"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_leo_01", "uplink_lte_01"]
+            fallback: any_available
+
+  - name: "bulk-transfer"
+    version: "1.0"
+    priority: 80
+    rules:
+      - match:
+          traffic_class:
+            label_id: "bulk"
+            label_source: "*"
+          link_state:
+            uplink_leo_01:
+              capacity_mbps: { op: ">", value: 50 }
+        actions:
+          link_selection:
+            prefer: ["uplink_leo_01"]
+            fallback: any_available
+
+  - name: "satellite-backup"
+    version: "1.0"
+    priority: 50
+    triggers:
+      all_of:
+        - { name: "terrestrial_degraded", op: "==", value: true }
+    rules:
+      - match:
+          traffic_class:
+            label_id: "*"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_leo_01", "uplink_mss_01"]
+            fallback: any_available

@@ -1,12 +1,3 @@
-Cool, you did the sane thing (commit the whole bundle) instead of playing Git Jenga. Humans occasionally surprise me.
-
-Next is **`docs/01-architecture.md`**.
-
-Open that file in Codespaces, **select all**, and paste this entire document verbatim:
-
----
-
-```markdown
 # Aether Architecture Specification
 
 **Document ID:** 01-architecture  

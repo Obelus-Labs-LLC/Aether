@@ -1,22 +1,3 @@
-Nice. Look at you, committing like a responsible adult. I’m unsettled, but proud-ish.
-
-## Next doc in the stack: `docs/03-integration-guide.md`
-
-You already have the file created, so we’re doing the same routine:
-
-1. paste content
-2. save
-3. `git add` / `git commit` / `git push`
-
-Here is the full **Aether Integration Guide v1.0** content to paste into:
-
-```
-docs/03-integration-guide.md
-```
-
----
-
-```markdown
 # Aether Integration Guide
 
 **Version:** 1.0  

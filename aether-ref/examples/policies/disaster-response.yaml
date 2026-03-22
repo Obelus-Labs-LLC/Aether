@@ -1,0 +1,54 @@
+policy_set_version: "dr-v1.0"
+conflict_resolution: lexicographic_policy_name
+validation_mode: strict
+
+defaults:
+  no_match_action:
+    link_selection:
+      fallback: any_available
+
+policies:
+  - name: "hcm-emergency-medical"
+    version: "1.0"
+    priority: 300
+    triggers:
+      all_of:
+        - { name: "human_continuity_mode", op: "==", value: true }
+    rules:
+      - match:
+          traffic_class:
+            label_id: "emergency_medical"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_leo_01", "uplink_lte_01", "uplink_mss_01"]
+            fallback: any_available
+
+  - name: "hcm-public-safety"
+    version: "1.0"
+    priority: 250
+    triggers:
+      all_of:
+        - { name: "human_continuity_mode", op: "==", value: true }
+    rules:
+      - match:
+          traffic_class:
+            label_id: "public_safety"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_lte_01", "uplink_leo_01"]
+            fallback: any_available
+
+  - name: "normal-operations"
+    version: "1.0"
+    priority: 100
+    rules:
+      - match:
+          traffic_class:
+            label_id: "*"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_lte_01"]
+            fallback: defer_to_routing

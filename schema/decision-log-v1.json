@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aether-spec.org/schema/decision-log-v1.json",
+  "title": "Aether Decision Log Entry",
+  "description": "Schema for tamper-evident audit log entries produced by Aether policy evaluation.",
+  "type": "object",
+  "required": ["sequence", "decision", "hmac", "previous_hmac"],
+  "additionalProperties": false,
+  "properties": {
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing sequence number."
+    },
+    "decision": {
+      "type": "object",
+      "required": ["decision_id", "timestamp", "policy_set_version", "traffic_class", "trigger_snapshot", "action_issued", "justification", "telemetry_snapshot"],
+      "properties": {
+        "decision_id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "policy_set_version": { "type": "string" },
+        "traffic_class": {
+          "type": "object",
+          "required": ["label_id", "label_source"],
+          "properties": {
+            "label_id": { "type": "string" },
+            "label_source": { "type": "string" }
+          }
+        },
+        "trigger_snapshot": { "type": "object", "additionalProperties": true },
+        "rule_matched": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["policy_name", "rule_index"],
+              "properties": {
+                "policy_name": { "type": "string" },
+                "rule_index": { "type": "integer", "minimum": 0 }
+              }
+            }
+          ]
+        },
+        "action_issued": {
+          "type": "object",
+          "required": ["link_selection"],
+          "properties": {
+            "link_selection": {
+              "type": "object",
+              "required": ["fallback"],
+              "properties": {
+                "prefer": { "type": "array", "items": { "type": "string" } },
+                "fallback": { "type": "string", "enum": ["any_available", "defer_to_routing", "shed_via_equipment"] }
+              }
+            }
+          }
+        },
+        "justification": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["PolicyMatch", "DefaultApplied", "HcmOverride", "TelemetryDegraded"] }
+          }
+        },
+        "telemetry_snapshot": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "hmac": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "HMAC-SHA256 hex digest of this entry."
+    },
+    "previous_hmac": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "HMAC of the previous entry, or initial seed for sequence 0."
+    }
+  }
+}

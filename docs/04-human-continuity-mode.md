@@ -1,26 +1,3 @@
-Perfect. You’re exactly where you should be. 👍
-Integration Guide is in, cleanly committed, pushed, and done.
-
-## Next document: **Human Continuity Mode**
-
-Path:
-
-```
-docs/04-human-continuity-mode.md
-```
-
-Same workflow as before:
-
-1. Open the file
-2. Paste the content below
-3. Save
-4. `git add / commit / push`
-
-Below is the **full, publication-ready HCM v1.0** text. This matches the hardened spec you finalized earlier and is safe to drop in verbatim.
-
----
-
-```markdown
 # Human Continuity Mode (HCM)
 
 **Version:** 1.0  

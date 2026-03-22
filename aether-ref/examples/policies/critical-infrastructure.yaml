@@ -1,0 +1,52 @@
+policy_set_version: "ci-v1.0"
+conflict_resolution: lexicographic_policy_name
+validation_mode: strict
+
+defaults:
+  no_match_action:
+    link_selection:
+      fallback: defer_to_routing
+
+policies:
+  - name: "scada-critical"
+    version: "1.0"
+    priority: 200
+    rules:
+      - match:
+          traffic_class:
+            label_id: "scada_telemetry"
+            label_source: "DSCP"
+          link_state:
+            uplink_leo_01:
+              availability: { op: "==", value: "up" }
+              latency_ms: { op: "<", value: 150 }
+        actions:
+          link_selection:
+            prefer: ["uplink_leo_01", "uplink_mss_01"]
+            fallback: any_available
+
+  - name: "grid-monitoring"
+    version: "1.0"
+    priority: 150
+    rules:
+      - match:
+          traffic_class:
+            label_id: "grid_monitor"
+            label_source: "DSCP"
+        actions:
+          link_selection:
+            prefer: ["uplink_lte_01", "uplink_leo_01"]
+            fallback: any_available
+
+  - name: "routine-traffic"
+    version: "1.0"
+    priority: 50
+    rules:
+      - match:
+          traffic_class:
+            label_id: "*"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["uplink_lte_01"]
+            fallback: defer_to_routing

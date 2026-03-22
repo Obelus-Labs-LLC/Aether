@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aether-spec.org/schema/hcm-activation-v1.json",
+  "title": "Aether HCM Activation Event",
+  "description": "Schema for Human Continuity Mode activation events.",
+  "type": "object",
+  "required": ["event_type", "event_id", "actor_id", "actor_type", "timestamp", "reason", "scope", "authorization_method", "max_duration_seconds"],
+  "additionalProperties": false,
+  "properties": {
+    "event_type": { "type": "string", "const": "hcm_activation" },
+    "event_id": { "type": "string" },
+    "actor_id": { "type": "string" },
+    "actor_type": { "type": "string", "enum": ["human_operator", "automated_system", "external_authority"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "reason": { "type": "string" },
+    "scope": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "authorization_method": { "type": "string" },
+    "max_duration_seconds": { "type": "integer", "minimum": 1, "maximum": 259200, "default": 14400 },
+    "max_total_duration_seconds": { "type": "integer", "minimum": 1, "default": 259200 },
+    "allow_renewal": { "type": "boolean", "default": true }
+  }
+}
