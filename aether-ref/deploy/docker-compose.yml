@@ -1,0 +1,38 @@
+version: "3.8"
+services:
+  aether-engine:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./adapter-config.yaml:/etc/aether/adapter-config.yaml:ro
+      - ./sample-policy.yaml:/etc/aether/policy.yaml:ro
+    cap_add:
+      - NET_ADMIN
+    command:
+      - serve
+      - --bind
+      - "0.0.0.0:8080"
+      - --audit-key-hex
+      - "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+  telemetry-poller:
+    image: curlimages/curl:latest
+    depends_on:
+      - aether-engine
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 5
+        echo "Starting telemetry poller..."
+        while true; do
+          NOW=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          for link in leo_01 lte_01; do
+            curl -s -X POST http://aether-engine:8080/api/v1/telemetry \
+              -H "Content-Type: application/json" \
+              -d "{\"link_id\":\"$$link\",\"state\":{\"link_id\":\"$$link\",\"latency_ms\":50.0,\"availability\":\"up\",\"timestamp\":\"$$NOW\",\"source_id\":\"poller\"},\"received_at\":\"$$NOW\"}" || true
+          done
+          sleep 10
+        done

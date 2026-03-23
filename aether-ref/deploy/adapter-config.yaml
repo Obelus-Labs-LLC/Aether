@@ -1,0 +1,11 @@
+- link_id: "leo_01"
+  interface_name: "eth0"
+  routing_table: 100
+  gateway: "10.0.1.1"
+  ping_target: "10.0.1.2"
+
+- link_id: "lte_01"
+  interface_name: "eth1"
+  routing_table: 200
+  gateway: "10.0.2.1"
+  ping_target: "10.0.2.2"

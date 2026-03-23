@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::adapter::registry::AdapterRegistry;
 use crate::types::link::{LinkId, LinkState, TelemetryRecord, TelemetrySnapshot};
 
 /// Stores and queries link-level telemetry.
@@ -65,6 +66,34 @@ impl TelemetryStore {
         self.latest.keys().cloned().collect()
     }
 
+    /// Ingest a telemetry record with adapter trust verification.
+    /// Validates sequence numbers, HMAC signatures, and records heartbeats
+    /// before ingesting the record.
+    pub fn ingest_verified(
+        &mut self,
+        record: TelemetryRecord,
+        registry: &mut AdapterRegistry,
+    ) -> Result<(), String> {
+        // 1. Validate sequence number if present.
+        if let Some(seq) = record.sequence_number {
+            registry.check_sequence(&record.state.source_id, seq)?;
+        }
+
+        // 2. Verify HMAC signature if present.
+        if let Some(ref sig) = record.hmac_signature {
+            let data = serde_json::to_vec(&record.state)
+                .map_err(|e| format!("failed to serialize link state: {}", e))?;
+            registry.verify_hmac(&record.state.source_id, &data, sig)?;
+        }
+
+        // 3. Record heartbeat.
+        registry.record_heartbeat(&record.state.source_id, record.received_at);
+
+        // 4. Ingest the record.
+        self.ingest(record);
+        Ok(())
+    }
+
     /// Find links with stale telemetry.
     pub fn stale_links(&self, now: chrono::DateTime<chrono::Utc>) -> Vec<LinkId> {
         self.latest
@@ -94,6 +123,8 @@ mod tests {
                 source_id: "test".to_string(),
             },
             received_at: now,
+            sequence_number: None,
+            hmac_signature: None,
         }
     }
 

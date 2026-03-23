@@ -1,0 +1,36 @@
+policy_set_version: "deploy-v1"
+conflict_resolution: lexicographic_policy_name
+validation_mode: strict
+
+policies:
+  - name: critical-uplink
+    version: "1.0"
+    priority: 100
+    rules:
+      - match:
+          traffic_class:
+            label_id: "critical"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["leo_01"]
+            fallback: any_available
+
+  - name: default-routing
+    version: "1.0"
+    priority: 50
+    rules:
+      - match:
+          traffic_class:
+            label_id: "*"
+            label_source: "*"
+        actions:
+          link_selection:
+            prefer: ["lte_01"]
+            fallback: defer_to_routing
+
+defaults:
+  no_match_action:
+    link_selection:
+      prefer: []
+      fallback: defer_to_routing

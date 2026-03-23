@@ -2,8 +2,12 @@ use clap::{Parser, Subcommand};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::path::PathBuf;
+use std::sync::Arc;
 
+use aether_ref::api::http::{AppState, serve};
+use aether_ref::api::northbound::AetherEngine;
 use aether_ref::engine::evaluator::{evaluate, validate_policy_set};
+use aether_ref::hcm::clock::SystemClock;
 use aether_ref::types::hcm::HcmState;
 use aether_ref::types::link::TelemetrySnapshot;
 use aether_ref::types::policy::{PolicySet, TriggerValue};
@@ -54,6 +58,17 @@ enum Commands {
         #[arg(long, conflicts_with = "key_file")]
         key_hex: Option<String>,
     },
+
+    /// Start the Aether HTTP API server
+    Serve {
+        /// Address to bind to (e.g. "0.0.0.0:8080")
+        #[arg(long, default_value = "0.0.0.0:8080")]
+        bind: String,
+
+        /// HMAC key as hex string for the audit chain
+        #[arg(long)]
+        audit_key_hex: Option<String>,
+    },
 }
 
 /// Resolve HMAC key from --key-file, --key-hex, or AETHER_AUDIT_KEY env var.
@@ -74,7 +89,8 @@ fn resolve_audit_key(key_file: Option<PathBuf>, key_hex: Option<String>) -> Vec<
     std::process::exit(1);
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     tracing_subscriber::fmt::init();
     let cli = Cli::parse();
 
@@ -211,6 +227,29 @@ fn main() {
                 "Audit chain integrity verified. {} entries.",
                 entries.len()
             );
+        }
+
+        Commands::Serve {
+            bind,
+            audit_key_hex,
+        } => {
+            let audit_key = if let Some(hex_str) = audit_key_hex {
+                hex::decode(&hex_str)
+                    .unwrap_or_else(|e| panic!("invalid hex audit key: {e}"))
+            } else if let Ok(env_key) = std::env::var("AETHER_AUDIT_KEY") {
+                hex::decode(&env_key)
+                    .unwrap_or_else(|e| panic!("invalid hex in AETHER_AUDIT_KEY: {e}"))
+            } else {
+                eprintln!("Warning: no audit key provided, using default key. Set --audit-key-hex or AETHER_AUDIT_KEY for production.");
+                b"default-audit-key".to_vec()
+            };
+
+            let engine = AetherEngine::new(SystemClock, audit_key, 1000);
+            let state = AppState {
+                engine: Arc::new(tokio::sync::RwLock::new(engine)),
+            };
+
+            serve(state, &bind).await;
         }
     }
 }

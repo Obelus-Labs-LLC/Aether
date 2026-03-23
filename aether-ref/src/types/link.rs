@@ -46,6 +46,10 @@ pub struct TelemetryRecord {
     pub state: LinkState,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub received_at: chrono::DateTime<chrono::Utc>,
+    #[serde(default)]
+    pub sequence_number: Option<u64>,
+    #[serde(default)]
+    pub hmac_signature: Option<String>,
 }
 
 /// A snapshot of all link states at evaluation time.

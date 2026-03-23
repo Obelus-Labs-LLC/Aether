@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
+use crate::adapter::registry::AdapterRegistry;
 use crate::audit::logger::AuditLogger;
+use crate::config::{EngineConfig, MissingTelemetryAction};
 use crate::engine::evaluator::{evaluate, validate_policy_set};
 use crate::error::Result;
 use crate::hcm::activation::HcmManager;
@@ -10,29 +12,52 @@ use crate::telemetry::ingestion::TelemetryStore;
 use crate::telemetry::memory::ExperienceMemory;
 use crate::types::decision::Decision;
 use crate::types::hcm::HcmActivation;
+use crate::types::link::TelemetryRecord;
 use crate::types::policy::{PolicySet, TriggerValue};
 use crate::types::traffic_class::TrafficClassLabel;
 
 /// The Aether engine — northbound interface for operators.
 pub struct AetherEngine<C: MonotonicClock> {
+    config: EngineConfig,
     policy_set: Option<PolicySet>,
     trigger_state: BTreeMap<String, TriggerValue>,
     telemetry: TelemetryStore,
     memory: ExperienceMemory,
     hcm: HcmManager<C>,
     audit: AuditLogger,
+    adapter_registry: AdapterRegistry,
 }
 
 impl<C: MonotonicClock> AetherEngine<C> {
-    pub fn new(clock: C, audit_key: Vec<u8>, memory_capacity: usize) -> Self {
+    /// Create a new engine with full configuration.
+    pub fn with_config(config: EngineConfig, clock: C, audit_key: Vec<u8>, memory_capacity: usize) -> Self {
+        let staleness = std::time::Duration::from_secs(config.staleness_threshold_secs);
         Self {
+            config,
             policy_set: None,
             trigger_state: BTreeMap::new(),
-            telemetry: TelemetryStore::new(std::time::Duration::from_secs(300)),
+            telemetry: TelemetryStore::new(staleness),
             memory: ExperienceMemory::new(memory_capacity),
             hcm: HcmManager::new(clock),
             audit: AuditLogger::new(audit_key),
+            adapter_registry: AdapterRegistry::new(),
         }
+    }
+
+    /// Create a new engine with default configuration. Backward-compatible.
+    pub fn new(clock: C, audit_key: Vec<u8>, memory_capacity: usize) -> Self {
+        Self::with_config(
+            EngineConfig {
+                controller_instance_id: "default".to_string(),
+                validation_mode: Default::default(),
+                conflict_resolution: Default::default(),
+                missing_telemetry_action: Default::default(),
+                staleness_threshold_secs: 300,
+            },
+            clock,
+            audit_key,
+            memory_capacity,
+        )
     }
 
     // --- Policy Management ---
@@ -88,6 +113,35 @@ impl<C: MonotonicClock> AetherEngine<C> {
         self.hcm.state()
     }
 
+    // --- Adapter Registry ---
+
+    /// Register a telemetry adapter with optional HMAC secret and heartbeat interval.
+    pub fn register_adapter(
+        &mut self,
+        id: String,
+        secret: Option<Vec<u8>>,
+        heartbeat: std::time::Duration,
+    ) {
+        self.adapter_registry
+            .register_adapter(id, secret, heartbeat);
+    }
+
+    /// Check which adapters have missed their heartbeat deadline.
+    pub fn check_adapter_liveness(&self) -> Vec<String> {
+        self.adapter_registry.check_liveness(chrono::Utc::now())
+    }
+
+    /// Get a reference to the adapter registry.
+    pub fn adapter_registry(&self) -> &AdapterRegistry {
+        &self.adapter_registry
+    }
+
+    /// Ingest a telemetry record with adapter trust verification.
+    pub fn ingest_verified(&mut self, record: TelemetryRecord) -> std::result::Result<(), String> {
+        self.telemetry
+            .ingest_verified(record, &mut self.adapter_registry)
+    }
+
     // --- Telemetry ---
 
     pub fn telemetry_store(&self) -> &TelemetryStore {
@@ -135,8 +189,28 @@ impl<C: MonotonicClock> AetherEngine<C> {
         }
 
         let telemetry_snapshot = self.telemetry.snapshot();
+        let now = chrono::Utc::now();
+
+        // Check for stale telemetry and apply configured action
+        let stale = self.telemetry.stale_links(now);
+        if !stale.is_empty() {
+            match &self.config.missing_telemetry_action {
+                MissingTelemetryAction::RejectEvaluation => {
+                    let ids: Vec<String> = stale.iter().map(|l| l.0.clone()).collect();
+                    return Err(crate::error::AetherError::Telemetry(
+                        format!("stale telemetry for links: {}", ids.join(", "))
+                    ));
+                }
+                MissingTelemetryAction::MarkDegraded => {
+                    tracing::warn!(stale_links = ?stale, "proceeding with degraded telemetry");
+                }
+                MissingTelemetryAction::UseLastKnown => {
+                    // Default: proceed silently with last-known data
+                }
+            }
+        }
+
         let decision_id = uuid::Uuid::new_v4().to_string();
-        let timestamp = chrono::Utc::now();
 
         let decision = evaluate(
             policy_set,
@@ -145,7 +219,7 @@ impl<C: MonotonicClock> AetherEngine<C> {
             traffic_class,
             self.hcm.state(),
             decision_id,
-            timestamp,
+            now,
         )?;
 
         // Log the decision (tamper-evident)
@@ -246,6 +320,8 @@ mod tests {
                     source_id: "test".to_string(),
                 },
                 received_at: now,
+                sequence_number: None,
+                hmac_signature: None,
             });
         }
     }

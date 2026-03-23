@@ -30,5 +30,7 @@ pub async fn read_link_telemetry(
         link_id: link_id.clone(),
         state,
         received_at: chrono::Utc::now(),
+        sequence_number: None,
+        hmac_signature: None,
     })
 }

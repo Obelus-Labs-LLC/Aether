@@ -1,0 +1,766 @@
+openapi: 3.1.0
+info:
+  title: Aether Northbound HTTP API
+  description: RESTful API for the Aether policy-driven uplink arbitration engine.
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/v1/policies:
+    post:
+      summary: Load a policy set
+      description: Parse and validate a PolicySet, replacing any previously loaded set.
+      operationId: loadPolicies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicySet"
+            example:
+              policy_set_version: "v1.0"
+              policies:
+                - name: "emergency-policy"
+                  version: "1.0"
+                  priority: 200
+                  rules:
+                    - match:
+                        traffic_class:
+                          label_id: "emergency"
+                          label_source: "*"
+                      actions:
+                        link_selection:
+                          prefer:
+                            - "leo_01"
+                          fallback: any_available
+              defaults:
+                no_match_action:
+                  link_selection:
+                    prefer: []
+                    fallback: defer_to_routing
+      responses:
+        "200":
+          description: Policy set loaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                example:
+                  status: loaded
+        "400":
+          description: Policy validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "policy validation error: duplicate policy name: emergency-policy"
+                code: POLICY_VALIDATION_ERROR
+
+    get:
+      summary: Get the current policy set
+      description: Returns the currently loaded policy set, or 404 if none is loaded.
+      operationId: getPolicies
+      responses:
+        "200":
+          description: Current policy set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicySet"
+        "404":
+          description: No policy set loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "no policy set loaded"
+                code: NOT_FOUND
+
+  /api/v1/evaluate:
+    post:
+      summary: Evaluate a traffic class
+      description: Evaluate a traffic class against the current policy set. Returns the decision and whether a directive was applied.
+      operationId: evaluateTraffic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateRequest"
+            example:
+              traffic_class:
+                label_id: "emergency"
+                label_source: "DSCP"
+      responses:
+        "200":
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResponse"
+        "400":
+          description: Evaluation error (e.g. no policy loaded, telemetry error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "policy validation error: no policy set loaded"
+                code: POLICY_ERROR
+
+  /api/v1/telemetry:
+    post:
+      summary: Ingest a telemetry record
+      description: Ingest a link telemetry record into the engine's telemetry store.
+      operationId: ingestTelemetry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelemetryRecord"
+            example:
+              link_id: "leo_01"
+              state:
+                link_id: "leo_01"
+                latency_ms: 45.2
+                jitter_ms: 3.1
+                availability: up
+                capacity_mbps: 100.0
+                timestamp: 1711152000000
+                source_id: "adapter-1"
+              received_at: 1711152000000
+      responses:
+        "204":
+          description: Telemetry record ingested successfully
+
+  /api/v1/audit:
+    get:
+      summary: Query audit entries
+      description: Returns audit entries, optionally filtered by time range using ISO 8601 timestamps.
+      operationId: queryAudit
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Start of time range (ISO 8601)
+          example: "2024-01-01T00:00:00Z"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: End of time range (ISO 8601)
+          example: "2024-12-31T23:59:59Z"
+      responses:
+        "200":
+          description: Array of audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+        "400":
+          description: Invalid timestamp parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/audit/{decision_id}:
+    get:
+      summary: Get a specific audit entry
+      description: Returns the audit entry for a specific decision ID.
+      operationId: getAuditEntry
+      parameters:
+        - name: decision_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The decision ID to look up
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "200":
+          description: The audit entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEntry"
+        "404":
+          description: Audit entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "audit entry not found for decision_id: 550e8400-e29b-41d4-a716-446655440000"
+                code: NOT_FOUND
+
+  /api/v1/hcm/activate:
+    post:
+      summary: Activate Human Continuity Mode
+      description: Activate HCM with the given activation parameters. If already active, this is treated as a renewal.
+      operationId: activateHcm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HcmActivation"
+            example:
+              event_type: "hcm_activation"
+              event_id: "evt-001"
+              actor_id: "operator-1"
+              actor_type: human_operator
+              timestamp: "2024-03-23T12:00:00Z"
+              reason: "Emergency override required"
+              scope:
+                - "emergency"
+                - "medical"
+              authorization_method: "manual"
+              max_duration_seconds: 14400
+              max_total_duration_seconds: 259200
+              allow_renewal: true
+      responses:
+        "200":
+          description: HCM activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                example:
+                  status: activated
+        "400":
+          description: HCM activation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "HCM error: renewal not permitted"
+                code: HCM_ERROR
+
+  /api/v1/hcm/deactivate:
+    post:
+      summary: Deactivate Human Continuity Mode
+      description: Manually deactivate HCM. Returns error if HCM is not currently active.
+      operationId: deactivateHcm
+      responses:
+        "200":
+          description: HCM deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                example:
+                  status: deactivated
+        "400":
+          description: HCM deactivation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "HCM error: HCM is not active"
+                code: HCM_ERROR
+
+  /api/v1/hcm/state:
+    get:
+      summary: Get HCM state
+      description: Returns the current HCM state export including activation details and timing.
+      operationId: getHcmState
+      responses:
+        "200":
+          description: Current HCM state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HcmStateExport"
+
+  /api/v1/health:
+    get:
+      summary: Health check
+      description: Returns engine health status including policy load state and audit chain integrity.
+      operationId: health
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                policy_loaded: true
+                audit_chain_valid: true
+
+components:
+  schemas:
+    PolicySet:
+      type: object
+      required:
+        - policy_set_version
+        - policies
+        - defaults
+      properties:
+        policy_set_version:
+          type: string
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Policy"
+        defaults:
+          $ref: "#/components/schemas/Defaults"
+        conflict_resolution:
+          type: string
+          enum:
+            - lexicographic_policy_name
+            - require_unique
+            - first_loaded
+        validation_mode:
+          type: string
+          enum:
+            - strict
+            - permissive
+
+    Policy:
+      type: object
+      required:
+        - name
+        - version
+        - priority
+        - rules
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        priority:
+          type: integer
+          format: int64
+        triggers:
+          $ref: "#/components/schemas/TriggerBlock"
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rule"
+
+    TriggerBlock:
+      type: object
+      properties:
+        all_of:
+          type: array
+          items:
+            $ref: "#/components/schemas/TriggerCondition"
+        any_of:
+          type: array
+          items:
+            $ref: "#/components/schemas/TriggerCondition"
+
+    TriggerCondition:
+      type: object
+      required:
+        - name
+        - op
+        - value
+      properties:
+        name:
+          type: string
+        op:
+          type: string
+          enum: ["==", "!=", "<", "<=", ">", ">="]
+        value: {}
+
+    Rule:
+      type: object
+      required:
+        - match
+        - actions
+      properties:
+        match:
+          $ref: "#/components/schemas/MatchBlock"
+        actions:
+          $ref: "#/components/schemas/ActionBlock"
+
+    MatchBlock:
+      type: object
+      required:
+        - traffic_class
+      properties:
+        traffic_class:
+          $ref: "#/components/schemas/TrafficClassMatch"
+        link_state:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/LinkStateConditions"
+
+    TrafficClassMatch:
+      type: object
+      required:
+        - label_id
+        - label_source
+      properties:
+        label_id:
+          type: string
+        label_source:
+          type: string
+
+    LinkStateConditions:
+      type: object
+      properties:
+        latency_ms:
+          $ref: "#/components/schemas/Condition"
+        availability:
+          $ref: "#/components/schemas/StringCondition"
+        capacity_mbps:
+          $ref: "#/components/schemas/Condition"
+
+    Condition:
+      type: object
+      required:
+        - op
+        - value
+      properties:
+        op:
+          type: string
+          enum: ["==", "!=", "<", "<=", ">", ">="]
+        value:
+          type: number
+          format: double
+
+    StringCondition:
+      type: object
+      required:
+        - op
+        - value
+      properties:
+        op:
+          type: string
+          enum: ["==", "!=", "<", "<=", ">", ">="]
+        value:
+          type: string
+
+    ActionBlock:
+      type: object
+      required:
+        - link_selection
+      properties:
+        link_selection:
+          $ref: "#/components/schemas/LinkSelection"
+
+    LinkSelection:
+      type: object
+      required:
+        - fallback
+      properties:
+        prefer:
+          type: array
+          items:
+            type: string
+        fallback:
+          type: string
+          enum:
+            - any_available
+            - defer_to_routing
+            - shed_via_equipment
+
+    Defaults:
+      type: object
+      required:
+        - no_match_action
+      properties:
+        no_match_action:
+          $ref: "#/components/schemas/ActionBlock"
+
+    TrafficClassLabel:
+      type: object
+      required:
+        - label_id
+        - label_source
+      properties:
+        label_id:
+          type: string
+        label_source:
+          type: string
+
+    EvaluateRequest:
+      type: object
+      required:
+        - traffic_class
+      properties:
+        traffic_class:
+          $ref: "#/components/schemas/TrafficClassLabel"
+
+    EvaluateResponse:
+      type: object
+      required:
+        - decision
+        - directive_applied
+      properties:
+        decision:
+          $ref: "#/components/schemas/Decision"
+        directive_applied:
+          type: boolean
+
+    Decision:
+      type: object
+      required:
+        - decision_id
+        - timestamp
+        - policy_set_version
+        - traffic_class
+        - trigger_snapshot
+        - action_issued
+        - selected_links
+        - justification
+        - telemetry_snapshot
+      properties:
+        decision_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        policy_set_version:
+          type: string
+        traffic_class:
+          $ref: "#/components/schemas/TrafficClassLabel"
+        trigger_snapshot:
+          type: object
+          additionalProperties: {}
+        rule_matched:
+          $ref: "#/components/schemas/RuleRef"
+        action_issued:
+          $ref: "#/components/schemas/ActionBlock"
+        selected_links:
+          type: array
+          items:
+            type: string
+        justification:
+          $ref: "#/components/schemas/JustificationCode"
+        telemetry_snapshot:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/LinkState"
+
+    RuleRef:
+      type: object
+      required:
+        - policy_name
+        - rule_index
+      properties:
+        policy_name:
+          type: string
+        rule_index:
+          type: integer
+
+    JustificationCode:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - PolicyMatch
+            - DefaultApplied
+            - HcmOverride
+            - TelemetryDegraded
+        policy:
+          type: string
+        rule_index:
+          type: integer
+        activation_id:
+          type: string
+        missing_links:
+          type: array
+          items:
+            type: string
+
+    TelemetryRecord:
+      type: object
+      required:
+        - link_id
+        - state
+        - received_at
+      properties:
+        link_id:
+          type: string
+        state:
+          $ref: "#/components/schemas/LinkState"
+        received_at:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds
+        sequence_number:
+          type: integer
+          format: int64
+        hmac_signature:
+          type: string
+
+    LinkState:
+      type: object
+      required:
+        - link_id
+        - availability
+        - timestamp
+        - source_id
+      properties:
+        link_id:
+          type: string
+        latency_ms:
+          type: number
+          format: double
+        jitter_ms:
+          type: number
+          format: double
+        availability:
+          type: string
+          enum:
+            - up
+            - down
+            - degraded
+        capacity_mbps:
+          type: number
+          format: double
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds
+        source_id:
+          type: string
+
+    AuditEntry:
+      type: object
+      required:
+        - sequence
+        - decision
+        - hmac
+        - previous_hmac
+      properties:
+        sequence:
+          type: integer
+          format: int64
+        decision:
+          $ref: "#/components/schemas/Decision"
+        hmac:
+          type: string
+          description: HMAC-SHA256 hex digest
+        previous_hmac:
+          type: string
+          description: HMAC of the previous entry
+
+    HcmActivation:
+      type: object
+      required:
+        - event_type
+        - event_id
+        - actor_id
+        - actor_type
+        - timestamp
+        - reason
+        - scope
+        - authorization_method
+      properties:
+        event_type:
+          type: string
+        event_id:
+          type: string
+        actor_id:
+          type: string
+        actor_type:
+          type: string
+          enum:
+            - human_operator
+            - automated_system
+            - external_authority
+        timestamp:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        scope:
+          type: array
+          items:
+            type: string
+        authorization_method:
+          type: string
+        max_duration_seconds:
+          type: integer
+          format: int64
+          default: 14400
+        max_total_duration_seconds:
+          type: integer
+          format: int64
+          default: 259200
+        allow_renewal:
+          type: boolean
+          default: false
+
+    HcmStateExport:
+      type: object
+      required:
+        - active
+        - cumulative_seconds
+        - renewal_count
+      properties:
+        active:
+          type: boolean
+        activation:
+          $ref: "#/components/schemas/HcmActivation"
+        cumulative_seconds:
+          type: integer
+          format: int64
+        renewal_count:
+          type: integer
+          format: int32
+        elapsed_current_seconds:
+          type: integer
+          format: int64
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - policy_loaded
+        - audit_chain_valid
+      properties:
+        status:
+          type: string
+        policy_loaded:
+          type: boolean
+        audit_chain_valid:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+        code:
+          type: string
