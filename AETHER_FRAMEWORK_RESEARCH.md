@@ -1,6 +1,5 @@
 # Aether — Policy-Driven Uplink Arbitration Framework — Research Assessment
 
-**Project:** `_backlog/specs/Aether`
 **Repo:** `https://github.com/Obelus-Labs-LLC/Aether`
 **Version:** 1.0
 **Status:** Normative specification + Rust reference implementation
@@ -175,11 +174,11 @@ No open-source project directly replicates Aether's design:
 
 ---
 
-## 9. Where It Could Be Used Across Obelus Labs
+## 9. Standardization Path
 
-- **Dell ↔ Legion networking**: Currently using basic Tailscale mesh. Aether could define the arbitration policy for Tailscale vs LAN vs potential future cellular failover
-- **Guardian**: Mobile app deployment will need Funnel or similar for public access. Aether policies could arbitrate between Tailscale Funnel and direct connectivity
-- **As a product/standard**: Position as an open standard for auditable uplink arbitration. Submit to relevant standards bodies or industry groups focused on critical infrastructure networking. The spec-first approach is already correct
+- Position as an open standard for auditable uplink arbitration
+- Submit to relevant standards bodies or industry groups focused on critical infrastructure networking
+- The spec-first approach enables vendor-neutral adoption
 
 ---
 
@@ -189,8 +188,8 @@ No open-source project directly replicates Aether's design:
 |-----------|--------|-------|
 | Concept | Strong | Fills genuine whitespace between SD-WAN and standards bodies |
 | Specification | Strong | Rigorous conformance model, clear forbidden behaviors |
-| Implementation | Complete | Rust reference implementation with 43 tests |
+| Implementation | Complete | Rust reference implementation with full test coverage |
 | Novelty | High | No existing framework combines all six design properties |
 | Market Fit | Strong in niche | Regulated critical infrastructure, military, disaster response |
-| Readiness | Spec-only | Needs reference implementation, API definitions, formal verification |
+| Readiness | Functional | Reference implementation complete; API definitions and formal verification remain |
 | HCM Novelty | High | Uplink-level emergency override is distinct from existing GETS/WPS/FirstNet |

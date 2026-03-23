@@ -70,15 +70,17 @@ Aether functions as a **policy arbiter**, not a signaling protocol or path compu
 | `docs/glossary.md` | Term definitions |
 | `conformance.md` | Binary conformance model: 10 core requirements, 8 forbidden behaviors |
 
-### Implementation Contracts (`schema/`)
+### Schemas (`schema/`)
 
-- `telemetry-v1.json` — Link-state reporting format
-- `decision-log-v1.json` — Tamper-evident audit log schema
-- `hcm-activation-v1.json` — Human Continuity Mode activation contract
+| Schema | Description |
+|--------|-------------|
+| `schema/telemetry-v1.json` | Link-state reporting format |
+| `schema/decision-log-v1.json` | Tamper-evident audit log schema |
+| `schema/hcm-activation-v1.json` | Human Continuity Mode activation contract |
 
 ### Reference Implementation (`aether-ref/`)
 
-Rust reference implementation with 43 tests. See [`aether-ref/README.md`](aether-ref/README.md) for build and usage instructions.
+Rust reference implementation. See [`aether-ref/README.md`](aether-ref/README.md) for build and usage instructions.
 
 - Policy engine with deterministic evaluation
 - HMAC-SHA256 tamper-evident audit logging
