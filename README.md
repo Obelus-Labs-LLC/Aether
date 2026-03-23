@@ -80,11 +80,16 @@ Aether functions as a **policy arbiter**, not a signaling protocol or path compu
 
 ### Reference Implementation (`aether-ref/`)
 
-Rust reference implementation. See [`aether-ref/README.md`](aether-ref/README.md) for build and usage instructions.
+Rust reference implementation with HTTP API server. See [`aether-ref/README.md`](aether-ref/README.md) for build, usage, and deployment instructions.
 
-- Policy engine with deterministic evaluation
+- Policy engine with deterministic evaluation (49 tests)
+- HTTP API (Axum) with 10 endpoints and OpenAPI 3.1 specification
+- Linux netlink adapter (ip route) with idempotent apply and rollback
+- Telemetry trust model (adapter HMAC verification, sequence monotonicity, heartbeat liveness)
 - HMAC-SHA256 tamper-evident audit logging
 - Human Continuity Mode lifecycle management
+- TLA+ formal model verifying policy completeness and HCM correctness
+- Docker deployment with simulated multi-link topology
 - Example policies for critical infrastructure, disaster response, and multi-provider scenarios
 
 -----
