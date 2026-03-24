@@ -70,6 +70,12 @@ Aether functions as a **policy arbiter**, not a signaling protocol or path compu
 | `docs/glossary.md` | Term definitions |
 | `conformance.md` | Binary conformance model: 10 core requirements, 8 forbidden behaviors |
 
+### Research
+
+| Document | Description |
+|----------|-------------|
+| `AETHER_FRAMEWORK_RESEARCH.md` | Background research, design rationale, and open questions |
+
 ### Schemas (`schema/`)
 
 | Schema | Description |
@@ -82,15 +88,18 @@ Aether functions as a **policy arbiter**, not a signaling protocol or path compu
 
 Rust reference implementation with HTTP API server. See [`aether-ref/README.md`](aether-ref/README.md) for build, usage, and deployment instructions.
 
-- Policy engine with deterministic evaluation (49 tests)
-- HTTP API (Axum) with 10 endpoints and OpenAPI 3.1 specification
-- Linux netlink adapter (ip route) with idempotent apply and rollback
-- Telemetry trust model (adapter HMAC verification, sequence monotonicity, heartbeat liveness)
-- HMAC-SHA256 tamper-evident audit logging
-- Human Continuity Mode lifecycle management
-- TLA+ formal model verifying policy completeness and HCM correctness
-- Docker deployment with simulated multi-link topology
-- Example policies for critical infrastructure, disaster response, and multi-provider scenarios
+| Component | Path | Description |
+|-----------|------|-------------|
+| Policy engine | `src/engine/` | Deterministic evaluation (49 tests) |
+| HTTP API | `src/api/http.rs`, `openapi.yaml` | Axum server, 10 endpoints, OpenAPI 3.1 |
+| Netlink adapter | `src/adapter/netlink.rs` | Linux `ip route` with idempotent apply and rollback |
+| Telemetry trust | `src/adapter/registry.rs` | HMAC verification, sequence monotonicity, heartbeat liveness |
+| Audit logging | `src/audit/` | HMAC-SHA256 tamper-evident chain |
+| HCM | `src/hcm/` | Human Continuity Mode lifecycle management |
+| Formal model | `formal/AetherSpec.tla` | TLA+ — policy completeness, HCM correctness |
+| Deployment | `deploy/` | Docker Compose with simulated multi-link topology |
+| Failure modes | `docs/failure-modes.md` | Explicit outputs for degraded/missing/expired scenarios |
+| Examples | `examples/policies/` | Critical infrastructure, disaster response, multi-provider |
 
 -----
 
