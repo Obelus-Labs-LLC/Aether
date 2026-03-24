@@ -116,3 +116,7 @@ Rust reference implementation with HTTP API server. See [`aether-ref/README.md`]
 
 - **Code/Schemas:** Apache 2.0
 - **Documentation:** CC BY 4.0
+
+---
+
+If this specification was useful to you, consider giving it a star — it helps others discover it.
